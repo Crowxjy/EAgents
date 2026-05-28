@@ -28,8 +28,9 @@ REQUIRED_SECTIONS = [
     "L3 心智层",
     "L4 行为层",
     "L5 知识层",
-    "Few-shot",
 ]
+# Few-shot 段落不再要求标题里出现 "Few-shot" 字样,
+# 改由下方的 "### 片段" 计数来识别(标题可纯中文,如"## 典型对话片段")。
 
 
 def lint_persona(persona_path: Path, strict: bool = False):
