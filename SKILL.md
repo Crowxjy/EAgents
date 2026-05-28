@@ -41,6 +41,9 @@ persona ask <role_id> <question>
 # 多角色圆桌(并行)
 persona roundtable <role_id1,role_id2,...> <question>
 
+# 多轮真实讨论圆桌(顺序+回应+收敛)
+persona roundtable-session <role_id1,role_id2,...> --topic <topic>
+
 # 产物评判(支持文本/图片/链接)
 persona review <role_id> <artifact_path_or_url>
 
@@ -49,6 +52,11 @@ persona simulate <role_id> <web_url> <task>
 
 # 校验所有角色画像完整性
 persona lint
+
+# 用户反馈(优先表单,回退对话兜底)
+persona feedback             # 等价于输出表单引导文案
+persona feedback form        # 输出飞书表单 URL
+persona feedback submit ...  # 兜底:把对话中收到的结构化反馈写入飞书 Base
 ```
 
 ## 四、目录结构
@@ -130,6 +138,30 @@ imports:
 - 输出结构:**直觉反应 → 具体问题点 → 角色化建议 → 整体打分(1-10)**
 - 不允许给"全是优点"的评审,必须基于角色立场挑出至少 2 个问题
 
+### 7.4 用户反馈收集的硬要求
+
+当用户表达"反馈/报告问题/这个角色不准/这个知识有错/这里拟合不对/有 bug/有建议"等意图时,本 Skill 必须主动启动反馈收集流程,**不允许**:
+- 直接修改 `personas/` 或 `knowledge/` 文件
+- 仅把反馈写入用户本地的 Memory
+- 假装"已记录"但没有真正提交
+
+**收集策略(按优先级)**:
+
+1. **首选: 飞书表单**
+   - 当宿主模型/Agent 支持渲染原生表单时,优先弹出/嵌入飞书反馈表单
+   - 否则向用户输出表单 URL 链接(`scripts/feedback_handler.py form-url`)
+   - 表单地址: `https://bytedance.larkoffice.com/base/HGLTbRGqdagunpsf5r9cPjobnDd?table=tblEoCPkWbIc3rKk&view=vewriYNmAf`
+2. **回退: 对话兜底**
+   - 用户拒绝填表或环境无法跳转时,模型在对话中按字段引导用户提供以下信息:
+     - 必填: `问题类型`、`问题描述`
+     - 选填: `提交人`
+   - 收齐后调用 `python3 scripts/feedback_handler.py submit ...` 写入飞书 Base
+
+**兜底写入注意事项**:
+- 发生写入失败时(exit code != 0),不可对用户说"已提交",必须输出错误日志并再次提供表单 URL
+- 反馈记录的"处理状态"始终默认 `Todo`,由维护者后续在 Base 中流转
+- 反馈记录的"反馈来源"由收集渠道决定,模型不要让用户填写
+
 ## 八、当前交付状态
 
 | 模块 | 状态 |
@@ -142,7 +174,9 @@ imports:
 | 场景模板:PRD 评审 | ✅ 已交付 |
 | 编译脚本 `compile_persona.py` | ✅ 已交付 |
 | 圆桌脚本 `roundtable.py` | ✅ 已交付 |
+| 多轮圆桌脚本 `roundtable_session.py` | ✅ 已交付 |
 | 校验脚本 `lint.py` | ✅ 已交付 |
+| 用户反馈收集 `feedback_handler.py` + 飞书表单 | ✅ 已交付 |
 | 网页模拟能力 | ⏳ 待交付(Phase 4) |
 
 ## 九、路线图
