@@ -9,6 +9,15 @@ tags: [标签1, 标签2, 标签3]
 imports:                          # 选填,引入共享知识
   - knowledge/industry/xxx.md
   - knowledge/glossary/xxx.md
+knowledge_level:                  # 选填,声明对每块 imports 的掌握程度
+  # 取值: expert / proficient / novice / aware
+  # - expert     完全熟练,能解释边界、能脱口给出反例
+  # - proficient 能独立操作,偶尔需要查手册
+  # - novice     能照本宣科,容易混淆相邻概念
+  # - aware      只是听过这个名词,被深问会含糊带过
+  # 没声明的 import 项默认按 proficient 处理,不强制每条都填
+  # knowledge/industry/xxx.md: expert
+  # knowledge/glossary/xxx.md: aware
 basic:
   age: 0
   gender: 男/女

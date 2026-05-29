@@ -16,6 +16,15 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 
+# 知识掌握度提示,在 frontmatter 的 knowledge_level 中按 import 路径声明。
+# 设计为"选填、不破坏向后兼容":未声明则不注入任何提示,行为与旧版一致。
+LEVEL_PROMPTS = {
+    "expert": "你对此完全熟练,能深入解释边界情况、能脱口给出反例。",
+    "proficient": "你能独立操作,但偶尔需要查手册,遇到罕见 case 会犹豫。",
+    "novice": "你能照本宣科,但容易混淆相邻概念,被追问会暴露不熟。",
+    "aware": "你只是听过这个名词,被深问会含糊带过或承认不熟。",
+}
+
 
 def parse_frontmatter(content: str):
     """解析 YAML frontmatter,返回 (meta_dict, body_str)。
@@ -84,9 +93,17 @@ def parse_frontmatter(content: str):
     return meta2, body
 
 
-def load_knowledge(import_paths):
-    """读取 imports 列表中的所有共享知识文件"""
+def load_knowledge(import_paths, knowledge_level=None):
+    """读取 imports 列表中的所有共享知识文件。
+
+    knowledge_level 选填:dict[rel_path -> level],level ∈
+    {expert, proficient, novice, aware}。
+    若画像声明了某条 import 的掌握度,会在该知识块前注入一段
+    "掌握度提示",指导模型按对应熟练度演绎;未声明的条目按原样拼接,
+    保持向后兼容。
+    """
     chunks = []
+    knowledge_level = knowledge_level or {}
     for rel_path in import_paths:
         full = SKILL_ROOT / rel_path
         if not full.exists():
@@ -94,7 +111,13 @@ def load_knowledge(import_paths):
             continue
         with open(full, "r", encoding="utf-8") as f:
             content = f.read()
-            chunks.append(f"\n### 引用知识 · {rel_path}\n\n{content}\n")
+
+        level = knowledge_level.get(rel_path)
+        level_hint = LEVEL_PROMPTS.get(level, "") if level else ""
+        header = f"\n### 引用知识 · {rel_path}"
+        if level_hint:
+            header += f"\n> 你对本块知识的掌握度: **{level}** — {level_hint}"
+        chunks.append(f"{header}\n\n{content}\n")
     return "\n".join(chunks)
 
 
@@ -110,7 +133,13 @@ def compile_persona(role_id: str):
     meta, body = parse_frontmatter(content)
 
     imports = meta.get("imports", []) or []
-    knowledge_text = load_knowledge(imports) if imports else ""
+    knowledge_level = meta.get("knowledge_level") or {}
+    # 兼容 parse_frontmatter 把空 dict 解析成 [] 的极端情况
+    if not isinstance(knowledge_level, dict):
+        knowledge_level = {}
+    knowledge_text = (
+        load_knowledge(imports, knowledge_level) if imports else ""
+    )
 
     system_prompt = f"""# 角色扮演任务
 
